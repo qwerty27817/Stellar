@@ -8,6 +8,7 @@
 #include <time.h>
 #include <pwd.h>
 #include <grp.h>
+#include "selinux.h"
 
 #define perrorf(...) fprintf(stderr, __VA_ARGS__)
 
@@ -92,6 +93,17 @@ int main(int argc, char **argv) {
     if (setgid(gid) || setuid(uid)) {
         perrorf("chid: 切换 uid 或 gid 时权限被拒绝\n");
         return 1;
+    }
+
+    // 设置正确的SELinux context为shell
+    char *context = nullptr;
+    if (se::getcon(&context) == 0) {
+        // 如果当前context不是shell，则设置为shell context
+        if (context && strncmp(context, "u:r:shell:s0", 12) != 0) {
+            se::setcon("u:r:shell:s0");
+            printf("chid: 已设置SELinux context为 u:r:shell:s0\n");
+        }
+        se::freecon(context);
     }
 
     printf("chid: 已切换到 uid=%d, gid=%d\n", getuid(), getgid());
